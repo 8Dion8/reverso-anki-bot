@@ -29,7 +29,7 @@ class ReversoHandler:
         driver = webdriver.Chrome(service=service, options=chrome_options)
         return driver
 
-    def get_translations(self, query: str, lang_to="hebrew", lang_from="english"):
+    def get_translations(self, query: str, lang_to="english", lang_from="hebrew"):
         translations = []
         encoded_query = urllib.parse.quote_plus(query)
         request_url = f"{self.BASE_URL_CONTEXT}/{lang_to}-{lang_from}/{encoded_query}"

@@ -1,10 +1,12 @@
 import telebot
-from telebot.types import KeyboardButton, ReplyKeyboardMarkup, Message
+from telebot.types import KeyboardButton, ReplyKeyboardMarkup, Message, ReplyKeyboardRemove
 
 
 class Bot:
-    def __init__(self,  token, reversoHandler):
+    def __init__(self,  token, reversoHandler, ankiHandler):
         self.bot = telebot.TeleBot(token)
+        self.reversoHandler = reversoHandler
+        self.ankiHandler = ankiHandler
         self.POSSIBLE_STATES = {
             "AWAITING_USER": 1,
             "AWAITING_TRANSLATION_CHOICE": 2,
@@ -15,7 +17,14 @@ class Bot:
         @self.bot.message_handler(commands=["start"])
         def start(message: Message):
             self.STATE = self.POSSIBLE_STATES["AWAITING_USER"]
-            self.bot.send_message(message.chat.id, "Hi! Send me a word in english to get started")
+            self.bot.send_message(message.chat.id, "Hi! Send me a word in hebrew to get started")
+
+        @self.bot.message_handler(commands=["export"])
+        def export(message: Message):
+            self.ankiHandler.export_deck("deck.apkg")
+            with open("deck.apkg", 'rb') as f:
+                self.bot.send_document(message.chat.id, f)
+
 
 
         @self.bot.message_handler(func=lambda message: True)
@@ -23,7 +32,7 @@ class Bot:
 
             if self.STATE == self.POSSIBLE_STATES["AWAITING_USER"]:
                 self.CURRENT_TRANSLATION_SOURCE = message.text
-                translations = reversoHandler.get_translations(self.CURRENT_TRANSLATION_SOURCE)
+                translations = self.reversoHandler.get_translations(self.CURRENT_TRANSLATION_SOURCE)
                 print(translations)
                 self.bot.send_message(
                     message.chat.id,
@@ -34,7 +43,7 @@ class Bot:
 
             elif self.STATE == self.POSSIBLE_STATES["AWAITING_TRANSLATION_CHOICE"]:
                 self.CURRENT_TRANSLATION_TO = message.text
-                contexts = reversoHandler.get_contexts(self.CURRENT_TRANSLATION_SOURCE, self.CURRENT_TRANSLATION_TO)
+                contexts = self.reversoHandler.get_contexts(self.CURRENT_TRANSLATION_SOURCE, self.CURRENT_TRANSLATION_TO)
                 self.bot.send_message(
                     message.chat.id,
                     "\n\n".join(" - ".join(i) for i in contexts),
@@ -48,6 +57,14 @@ class Bot:
                     self.CURRENT_CONTEXT = self.CURRENT_CONTEXT_OPTIONS[int(message.text)]
                     self.bot.send_message(message.chat.id, f"Translated {self.CURRENT_TRANSLATION_SOURCE} to {self.CURRENT_TRANSLATION_TO}")
                     self.bot.send_message(message.chat.id, f"Example: {self.CURRENT_CONTEXT[0]}\n\n{self.CURRENT_CONTEXT[1]}")
+
+                    ankiHandler.add_flashcard(
+                        self.CURRENT_TRANSLATION_SOURCE,
+                        self.CURRENT_TRANSLATION_TO,
+                        self.CURRENT_CONTEXT[0],
+                        self.CURRENT_CONTEXT[1]
+                    )
+                    self.bot.send_message(message.chat.id, "Added flashcard.", reply_markup=ReplyKeyboardRemove())
 
                 self.reset_states()
 
