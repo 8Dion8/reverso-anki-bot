@@ -4,20 +4,23 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+from selenium.common.exceptions import StaleElementReferenceException
 import urllib.parse
+from time import sleep
 
 class ReversoHandler:
     def __init__(self):
         self.BASE_URL_CONTEXT = "https://context.reverso.net/translation"
 
         self.MAX_TRANSLATIONS = 3
-        self.MAX_CONTEXTS = 5
+        self.MAX_CONTEXTS = 6
 
         self.driver = self._initialize_driver()
 
 
     def _initialize_driver(self):
         chrome_options = Options()
+        chrome_options.page_load_strategy = 'eager'
         #chrome_options.add_argument("--headless")
         #chrome_options.add_argument("--disable-gpu")
         #chrome_options.add_argument("--no-sandbox")
@@ -26,11 +29,8 @@ class ReversoHandler:
         driver = webdriver.Chrome(service=service, options=chrome_options)
         return driver
 
-    def get_context(self, query: str, lang_to="hebrew", lang_from="english"):
-
+    def get_translations(self, query: str, lang_to="hebrew", lang_from="english"):
         translations = []
-        contexts = []
-
         encoded_query = urllib.parse.quote_plus(query)
         request_url = f"{self.BASE_URL_CONTEXT}/{lang_to}-{lang_from}/{encoded_query}"
 
@@ -49,28 +49,38 @@ class ReversoHandler:
             if tr_count >= self.MAX_TRANSLATIONS:
                 break
 
+        return translations
+
+    def get_contexts(self, query_from: str, query_to, lang_to="hebrew", lang_from="english"):
+
+        contexts = []
+
+        encoded_query = urllib.parse.quote_plus(query_from)
+        request_url = f"{self.BASE_URL_CONTEXT}/{lang_to}-{lang_from}/{encoded_query}#{query_to}"
+
+        self.driver.get(request_url)
+        sleep(2)
+
         context_container = WebDriverWait(self.driver, 5).until(
             EC.presence_of_element_located((By.ID, "examples-content"))
         )
-
-        extracted_context_elements = context_container.find_elements(By.CLASS_NAME, "example")
+        example_container = context_container.find_elements(By.CLASS_NAME, "example")
+        print(len(example_container))
         ex_count = 0
-        for index, context_element in enumerate(extracted_context_elements):
-            source_element = context_element.find_element(By.CLASS_NAME, "src")
-            target_element = context_element.find_element(By.CLASS_NAME, "trg")
+        for example in example_container:
+            try:
 
-            source_example = source_element.text
-            target_example = target_element.text
+                source_element = example.find_element(By.CLASS_NAME, "src")
+                target_element = example.find_element(By.CLASS_NAME, "trg")
 
-            contexts.append((source_example, target_example))
+                source_example = source_element.text
+                target_example = target_element.text
 
-            ex_count += 1
-            if ex_count >= self.MAX_CONTEXTS:
-                break
+                contexts.append((source_example, target_example))
 
-        return translations, contexts
+                if (ex_count := ex_count + 1) >= self.MAX_CONTEXTS:
+                    break
+            except StaleElementReferenceException:
+                continue
 
-
-if __name__ == "__main__":
-    handler = ReversoHandler()
-    print(handler.get_context("java"))
+        return contexts
