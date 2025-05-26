@@ -2,10 +2,6 @@ import genanki
 class AnkiHandler:
 
     def __init__(self):
-        self.deck = genanki.Deck(
-            deck_id=1234567890,
-            name="Hebrew Deck"
-        )
         self.model = genanki.Model(
             model_id=987654321,
             name="Simple Model",
@@ -29,12 +25,24 @@ class AnkiHandler:
             ]
         )
 
-    def add_flashcard(self, word, translation, context, context_translation):
-        note = genanki.Note(
-            model=self.model,
-            fields=[word, translation, context, context_translation]
+    def new_deck(self, id, name):
+        deck = genanki.Deck(
+            deck_id=id,
+            name=name
         )
-        self.deck.add_note(note)
 
-    def export_deck(self, file_name):
-        genanki.Package(self.deck).write_to_file(file_name)
+        return deck
+
+    def add_flashcards(self, deck, data):
+        for card in data:
+            deck.add_note(
+                genanki.Note(
+                    model = self.model,
+                    fields = card
+                )
+            )
+
+        return deck
+
+    def export_deck(self, deck, file_name):
+        genanki.Package(deck).write_to_file(file_name)
