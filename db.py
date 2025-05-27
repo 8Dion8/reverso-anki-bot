@@ -172,12 +172,12 @@ class DBHandler:
         cur.execute('''
             INSERT INTO UserSettings (user_id, key, value)
             VALUES (?, ?, ?);
-        ''', (user_id, 'main_language', 'hebrew'))
+        ''', (user_id, 'language_from', 'hebrew'))
 
         cur.execute('''
             INSERT INTO UserSettings (user_id, key, value)
             VALUES (?, ?, ?);
-        ''', (user_id, 'target_language', 'english'))
+        ''', (user_id, 'language_to', 'english'))
 
         cur.execute('''
             INSERT INTO UserQuery (user_id, from_tr, to_tr, from_context, to_context)
@@ -228,3 +228,25 @@ class DBHandler:
             ''', (user_id,))
 
         return cur.fetchall()
+
+    def set_user_setting(self, user_id, key, value):
+        cur = self.conn.cursor()
+
+        cur.execute('''
+            UPDATE UserSettings
+            SET value = ?
+            WHERE user_id = ? AND key = ?;
+        ''', (value, user_id, key))
+
+        self.conn.commit()
+
+    def get_user_setting(self, user_id, key):
+        cur = self.conn.cursor()
+
+        cur.execute('''
+            SELECT value
+            FROM UserSettings
+            WHERE user_id = ? AND key = ?;
+            ''', (user_id, key))
+
+        return cur.fetchone()[0]

@@ -4,6 +4,7 @@ from telebot.types import KeyboardButton, ReplyKeyboardMarkup, Message, ReplyKey
 from db import DBHandler
 from anki import AnkiHandler
 from reverso import ReversoHandler
+import reverso
 
 
 class Bot:
@@ -12,6 +13,7 @@ class Bot:
         self.reversoHandler = reversoHandler
         self.ankiHandler = ankiHandler
         self.dbhandler = dbhandler
+        self.VALID_LANGUAGES_DISPLAY = ", ".join(f'`{i.capitalize()}`' for i in sorted(reverso.VALID_LANGUAGES))
         print("Bot up and running!")
 
 
@@ -55,6 +57,12 @@ class Bot:
                 self.dbhandler.set_user_state(id, 'idle')
                 self.bot.send_message(message.chat.id, "Operation cancelled")
 
+        @self.bot.message_handler(commands=["language_set"])
+        def language_set(message: Message):
+            if message.from_user:
+                id = message.from_user.id
+                self.dbhandler.set_user_state(id, 'language_set_from')
+                self.bot.send_message(message.chat.id, "Please enter the language you want to translate FROM:\n"+self.VALID_LANGUAGES_DISPLAY, parse_mode='MARKDOWN')
 
         @self.bot.message_handler(func=lambda message: True)
         def main_react(message: Message):
@@ -89,7 +97,6 @@ class Bot:
                     self.dbhandler.add_user_context_option(id, i, context[0], context[1])
                 self.dbhandler.set_user_state(id, "awaiting_context_choice")
 
-
             elif self.dbhandler.get_user_state(id) == "awaiting_context_choice":
                 if message.text:
                     contexts = self.dbhandler.get_user_context_option_by_display_num(id, message.text)
@@ -107,6 +114,32 @@ class Bot:
                 self.dbhandler.reset_user_query(id)
                 self.dbhandler.reset_user_context_options(id)
                 self.dbhandler.set_user_state(id, 'idle')
+
+            elif self.dbhandler.get_user_state(id) == "language_set_from":
+                language_set_from = message.text.lower()
+                if language_set_from not in reverso.VALID_LANGUAGES:
+                    self.bot.send_message(message.chat.id, "Invalid choice.\nHint: you can just press on a language from the provided list to copy it to your clipboard.")
+                    return
+                else:
+                    self.dbhandler.set_user_setting(id, "language_from", language_set_from)
+                    self.bot.send_message(message.chat.id, f"Language set to {language_set_from}")
+                    self.bot.send_message(message.chat.id, "Please enter the language you want to translate TO:\n"+self.VALID_LANGUAGES_DISPLAY, parse_mode='MARKDOWN')
+                    self.dbhandler.set_user_state(id, 'language_set_to')
+
+            elif self.dbhandler.get_user_state(id) == "language_set_to":
+                language_set_to = message.text.lower()
+                if language_set_to not in reverso.VALID_LANGUAGES or language_set_to == self.dbhandler.get_user_setting(id, "language_from"):
+                    self.bot.send_message(message.chat.id, "Invalid choice.\nHint: you can just press on a language from the provided list to copy it to your clipboard.")
+                    return
+                else:
+                    self.dbhandler.set_user_setting(id, "language_to", language_set_to)
+                    self.bot.send_message(message.chat.id, f"Language set to {language_set_to}. Done!")
+                    self.dbhandler.set_user_state(id, 'idle')
+
+
+
+
+
 
     def gen_translations_keyboard(self, translations):
         markup = ReplyKeyboardMarkup(row_width = 1, one_time_keyboard=True)

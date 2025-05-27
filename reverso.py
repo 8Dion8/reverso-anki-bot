@@ -84,3 +84,6 @@ class ReversoHandler:
                 continue
 
         return contexts
+
+
+VALID_LANGUAGES = ["arabic", "german", "english", "spanish", "french", "hebrew", "italian", "japanese", "korean", "dutch", "polish", "portugese", "romanian", "russian", "swedish", "turkish", "ukranian", "chinese"]
