@@ -46,6 +46,16 @@ class Bot:
                     self.bot.send_document(message.chat.id, f)
 
 
+        @self.bot.message_handler(commands=["cancel"])
+        def cancel(message: Message):
+            if message.from_user:
+                id = message.from_user.id
+                self.dbhandler.reset_user_query(id)
+                self.dbhandler.reset_user_context_options(id)
+                self.dbhandler.set_user_state(id, 'idle')
+                self.bot.send_message(message.chat.id, "Operation cancelled")
+
+
         @self.bot.message_handler(func=lambda message: True)
         def main_react(message: Message):
             if message.text is None or not message.from_user:
