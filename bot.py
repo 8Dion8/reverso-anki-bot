@@ -9,13 +9,27 @@ import reverso
 
 class Bot:
     def __init__(self,  token, reversoHandler: ReversoHandler, ankiHandler: AnkiHandler, dbhandler: DBHandler):
-        self.bot = telebot.TeleBot(token)
+        self.bot = telebot.TeleBot(token, parse_mode='Markdown')
         self.reversoHandler = reversoHandler
         self.ankiHandler = ankiHandler
         self.dbhandler = dbhandler
         self.VALID_LANGUAGES_DISPLAY = ", ".join(f'`{i.capitalize()}`' for i in sorted(reverso.VALID_LANGUAGES))
         print("Bot up and running!")
 
+
+        def _help(user_id, chat_id):
+            language_from = self.dbhandler.get_user_setting(user_id, "language_from")
+            self.bot.send_message(chat_id, f'''
+Just send me a message in {language_from} to add a flashcard, or use the following commands:\n
+/help - display this message
+/cancel - cancel current operation/menu
+/language_set - set languages to translate from/to
+/export - export flashcards to an Anki deck file (`.apkg`)
+                ''', parse_mode="HTML")
+
+        @self.bot.message_handler(commands=["help"])
+        def help(message: Message):
+            _help(message.from_user.id, message.chat.id)
 
         @self.bot.message_handler(commands=["start"])
         def start(message: Message):
@@ -31,8 +45,8 @@ class Bot:
 
                 self.dbhandler.reset_user_query(id)
                 self.dbhandler.reset_user_context_options(id)
-                self.dbhandler.set_user_state(message.from_user.id, "idle")
-                self.bot.send_message(message.chat.id, f"Hi {message.from_user.username}! Send me a word in hebrew to get started")
+                self.dbhandler.set_user_state(id, "idle")
+                _help(id, message.chat.id)
 
 
         @self.bot.message_handler(commands=["export"])
@@ -62,7 +76,7 @@ class Bot:
             if message.from_user:
                 id = message.from_user.id
                 self.dbhandler.set_user_state(id, 'language_set_from')
-                self.bot.send_message(message.chat.id, "Please enter the language you want to translate FROM:\n"+self.VALID_LANGUAGES_DISPLAY, parse_mode='MARKDOWN')
+                self.bot.send_message(message.chat.id, "Please enter the language you want to translate FROM:\n"+self.VALID_LANGUAGES_DISPLAY)
 
         @self.bot.message_handler(func=lambda message: True)
         def main_react(message: Message):
@@ -74,7 +88,11 @@ class Bot:
             if self.dbhandler.get_user_state(id) == "idle":
                 self.dbhandler.set_user_query_column(id, "from_tr", message.text)
                 print(f"getting translations for {message.text}")
-                translations = self.reversoHandler.get_translations(message.text)
+                translations = self.reversoHandler.get_translations(
+                    message.text,
+                    lang_to = self.dbhandler.get_user_setting(id, "language_to"),
+                    lang_from = self.dbhandler.get_user_setting(id, "language_from")
+                )
                 self.bot.send_message(
                     message.chat.id,
                     "Choose a translation:",
@@ -85,7 +103,12 @@ class Bot:
             elif self.dbhandler.get_user_state(id) == "awaiting_translation_choice":
                 self.dbhandler.set_user_query_column(id, "to_tr", message.text)
                 print(f"getting contexts for {message.text}")
-                contexts = self.reversoHandler.get_contexts(self.dbhandler.get_user_query_column(id, "from_tr"), message.text)
+                contexts = self.reversoHandler.get_contexts(
+                    self.dbhandler.get_user_query_column(id, "from_tr"),
+                    message.text,
+                    lang_to = self.dbhandler.get_user_setting(id, "language_to"),
+                    lang_from = self.dbhandler.get_user_setting(id, "language_from")
+                )
                 self.bot.send_message(
                     message.chat.id,
                     "\n\n".join(" - ".join(i) for i in contexts),
@@ -123,7 +146,7 @@ class Bot:
                 else:
                     self.dbhandler.set_user_setting(id, "language_from", language_set_from)
                     self.bot.send_message(message.chat.id, f"Language set to {language_set_from}")
-                    self.bot.send_message(message.chat.id, "Please enter the language you want to translate TO:\n"+self.VALID_LANGUAGES_DISPLAY, parse_mode='MARKDOWN')
+                    self.bot.send_message(message.chat.id, "Please enter the language you want to translate TO:\n"+self.VALID_LANGUAGES_DISPLAY)
                     self.dbhandler.set_user_state(id, 'language_set_to')
 
             elif self.dbhandler.get_user_state(id) == "language_set_to":
