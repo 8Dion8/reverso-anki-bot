@@ -1,0 +1,6 @@
+telebot
+dotenv
+genanki
+sqlite3
+selenium
+
