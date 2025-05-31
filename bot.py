@@ -25,7 +25,7 @@ Just send me a message in {language_from} to add a flashcard, or use the followi
 /cancel - cancel current operation/menu
 /language_set - set languages to translate from/to
 /export - export flashcards to an Anki deck file (`.apkg`)
-                ''', parse_mode="HTML")
+            ''', parse_mode="HTML")
 
         @self.bot.message_handler(commands=["help"])
         def help(message: Message):
