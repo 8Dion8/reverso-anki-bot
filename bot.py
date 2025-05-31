@@ -62,6 +62,12 @@ Just send me a message in {language_from} to add a flashcard, or use the followi
                 with open(f"deck_{id}.apkg", 'rb') as f:
                     self.bot.send_document(message.chat.id, f)
 
+        @self.bot.message_handler(commands=["list"])
+        def list(message: Message):
+            flashcards = self.dbhandler.get_flashcards(message.from_user.id)
+            flashcard_display = self.flashcard_display(flashcards, include_context=True) 
+
+            self.bot.send_message(message.chat.id, flashcard_display)
 
         @self.bot.message_handler(commands=["cancel"])
         def cancel(message: Message):
@@ -78,7 +84,7 @@ Just send me a message in {language_from} to add a flashcard, or use the followi
                 id = message.from_user.id
                 self.bot.send_message(message.chat.id, "Please send the number of flashcard you want to delete:")
                 flashcards = self.dbhandler.get_flashcards(id)
-                flashcard_display = "\n".join(f'{i}. {card[0]} - {card[1]}' for i, card in enumerate(flashcards)) 
+                flashcard_display = self.flashcard_display(flashcards) 
                 self.bot.send_message(message.chat.id, flashcard_display)
 
                 self.dbhandler.set_user_state(id, 'awaiting_deletion_choice')
@@ -195,6 +201,16 @@ Just send me a message in {language_from} to add a flashcard, or use the followi
             markup.add(KeyboardButton(str(i)))
 
         return markup
+
+    def flashcard_display(self, flashcards, include_context = False):
+        if include_context:
+            flashcard_display = "\n".join(f'{i}. {card[0]} - {card[1]}\n__{card[2]}__\n__{card[3]}__\n' for i, card in enumerate(flashcards)) 
+        else: 
+            flashcard_display = "\n".join(f'{i}. {card[0]} - {card[1]}' for i, card in enumerate(flashcards)) 
+
+        return flashcard_display
+            
+    
 
     def run(self):
         self.bot.infinity_polling()
