@@ -227,7 +227,18 @@ class DBHandler:
             WHERE user_id = ?;
             ''', (user_id,))
 
-        return cur.fetchall()
+        flashcards = sorted(cur.fetchall(), key=lambda x: x[0])
+        return flashcards
+
+    def delete_flashcard(self, user_id, flashcard):
+        cur = self.conn.cursor()
+        
+        cur.execute('''
+            DELETE FROM Words
+            WHERE user_id = ? AND from_tr = ? AND to_tr = ? AND from_context = ? AND to_context = ?
+            ''', (user_id, *flashcard))
+
+        self.conn.commit()
 
     def set_user_setting(self, user_id, key, value):
         cur = self.conn.cursor()

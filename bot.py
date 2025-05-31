@@ -29,7 +29,8 @@ Just send me a message in {language_from} to add a flashcard, or use the followi
 
         @self.bot.message_handler(commands=["help"])
         def help(message: Message):
-            _help(message.from_user.id, message.chat.id)
+            if message.from_user:
+                _help(message.from_user.id, message.chat.id)
 
         @self.bot.message_handler(commands=["start"])
         def start(message: Message):
@@ -70,6 +71,17 @@ Just send me a message in {language_from} to add a flashcard, or use the followi
                 self.dbhandler.reset_user_context_options(id)
                 self.dbhandler.set_user_state(id, 'idle')
                 self.bot.send_message(message.chat.id, "Operation cancelled")
+
+        @self.bot.message_handler(commands=["delete", "remove"])
+        def delete(message: Message):
+            if message.from_user:
+                id = message.from_user.id
+                self.bot.send_message(message.chat.id, "Please send the number of flashcard you want to delete:")
+                flashcards = self.dbhandler.get_flashcards(id)
+                flashcard_display = "\n".join(f'{i}. {card[0]} - {card[1]}' for i, card in enumerate(flashcards)) 
+                self.bot.send_message(message.chat.id, flashcard_display)
+
+                self.dbhandler.set_user_state(id, 'awaiting_deletion_choice')
 
         @self.bot.message_handler(commands=["language_set"])
         def language_set(message: Message):
@@ -159,10 +171,16 @@ Just send me a message in {language_from} to add a flashcard, or use the followi
                     self.bot.send_message(message.chat.id, f"Language set to {language_set_to}. Done!")
                     self.dbhandler.set_user_state(id, 'idle')
 
+            elif self.dbhandler.get_user_state(id) == "awaiting_deletion_choice":
+                choice = message.text
+                flashcards = self.dbhandler.get_flashcards(id)
+                if not choice.isnumeric() or int(choice) < 0 or int(choice) > len(flashcards):
+                    self.bot.send_message(message.chat.id, "Please choose a valid flashcard number.")
+                    return
 
-
-
-
+                self.dbhandler.delete_flashcard(id, flashcards[int(choice)])          
+                self.bot.send_message(message.chat.id, "Flashcard successfully deleted.")
+                self.dbhandler.set_user_state(id, "idle")
 
     def gen_translations_keyboard(self, translations):
         markup = ReplyKeyboardMarkup(row_width = 1, one_time_keyboard=True)
