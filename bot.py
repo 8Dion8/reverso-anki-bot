@@ -74,8 +74,10 @@ Just send me a message in {language_from} to add a flashcard, or use the followi
             logging.info(f"Command /list from {message.from_user.id}")
             flashcards = self.dbhandler.get_flashcards(message.from_user.id)
             flashcard_display = self.flashcard_display(flashcards, include_context=True) 
-
-            self.bot.send_message(message.chat.id, flashcard_display)
+            if flashcard_display:
+                self.bot.send_message(message.chat.id, flashcard_display)
+            else:
+                self.bot.send_message(message.chat.id, "You have no flashcards at the moment.")
 
         @self.bot.message_handler(commands=["cancel"])
         def cancel(message: Message):
