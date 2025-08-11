@@ -6,6 +6,7 @@ from anki import AnkiHandler
 from reverso import ReversoHandler
 import reverso
 
+import logging
 
 class Bot:
     def __init__(self,  token, reversoHandler: ReversoHandler, ankiHandler: AnkiHandler, dbhandler: DBHandler):
@@ -14,7 +15,8 @@ class Bot:
         self.ankiHandler = ankiHandler
         self.dbhandler = dbhandler
         self.VALID_LANGUAGES_DISPLAY = ", ".join(f'`{i.capitalize()}`' for i in sorted(reverso.VALID_LANGUAGES))
-        print("Bot up and running!")
+        
+        logging.info("Bot up and running!")
 
 
         def _help(user_id, chat_id):
@@ -25,25 +27,29 @@ Just send me a message in {language_from} to add a flashcard, or use the followi
 /cancel - cancel current operation/menu
 /language_set - set languages to translate from/to
 /export - export flashcards to an Anki deck file (`.apkg`)
+/list - list all of your flashcards
+/delete - delete a flashcard
             ''', parse_mode="HTML")
 
         @self.bot.message_handler(commands=["help"])
         def help(message: Message):
             if message.from_user:
+                logging.info(f"Command /help from {message.from_user.id}")
                 _help(message.from_user.id, message.chat.id)
 
         @self.bot.message_handler(commands=["start"])
         def start(message: Message):
-            print("Got start")
             if message.from_user:
+                logging.info(f"Command /start from {message.from_user.id}")
                 id = message.from_user.id
                 user_ids = [i[0] for i in self.dbhandler.get_user_list()]
                 if id in user_ids:
-                    print("User found, just setting state")
+                    logging.info(f"User {id} exists")
                 else:
-                    print(f"New user {id}")
+                    logging.info(f"New user {id}")
                     self.dbhandler.init_user(id, message.from_user.username)
 
+                logging.info("Resetting user state")
                 self.dbhandler.reset_user_query(id)
                 self.dbhandler.reset_user_context_options(id)
                 self.dbhandler.set_user_state(id, "idle")
@@ -53,6 +59,7 @@ Just send me a message in {language_from} to add a flashcard, or use the followi
         @self.bot.message_handler(commands=["export"])
         def export(message: Message):
             if message.from_user:
+                logging.info(f"Command /export from {message.from_user.id}")
                 id = message.from_user.id
 
                 user_flashcards = self.dbhandler.get_flashcards(id)
@@ -64,6 +71,7 @@ Just send me a message in {language_from} to add a flashcard, or use the followi
 
         @self.bot.message_handler(commands=["list"])
         def list(message: Message):
+            logging.info(f"Command /list from {message.from_user.id}")
             flashcards = self.dbhandler.get_flashcards(message.from_user.id)
             flashcard_display = self.flashcard_display(flashcards, include_context=True) 
 
@@ -72,16 +80,18 @@ Just send me a message in {language_from} to add a flashcard, or use the followi
         @self.bot.message_handler(commands=["cancel"])
         def cancel(message: Message):
             if message.from_user:
+                logging.info(f"Command /cancel from {message.from_user.id}")
                 id = message.from_user.id
                 self.dbhandler.reset_user_query(id)
                 self.dbhandler.reset_user_context_options(id)
                 self.dbhandler.set_user_state(id, 'idle')
-                self.bot.send_message(message.chat.id, "Operation cancelled")
+                self.bot.send_message(message.chat.id, "Operation cancelled.")
 
         @self.bot.message_handler(commands=["delete", "remove"])
         def delete(message: Message):
             if message.from_user:
                 id = message.from_user.id
+                logging.info(f"Command /delete from {message.from_user.id}")
                 self.bot.send_message(message.chat.id, "Please send the number of flashcard you want to delete:")
                 flashcards = self.dbhandler.get_flashcards(id)
                 flashcard_display = self.flashcard_display(flashcards) 
@@ -92,9 +102,10 @@ Just send me a message in {language_from} to add a flashcard, or use the followi
         @self.bot.message_handler(commands=["language_set"])
         def language_set(message: Message):
             if message.from_user:
+                logging.info(f"Command /language_set from {message.from_user.id}")
                 id = message.from_user.id
                 self.dbhandler.set_user_state(id, 'language_set_from')
-                self.bot.send_message(message.chat.id, "Please enter the language you want to translate FROM:\n"+self.VALID_LANGUAGES_DISPLAY)
+                self.bot.send_message(message.chat.id, "Please enter the language you want to translate **from**:\n"+self.VALID_LANGUAGES_DISPLAY)
 
         @self.bot.message_handler(func=lambda message: True)
         def main_react(message: Message):
@@ -102,15 +113,15 @@ Just send me a message in {language_from} to add a flashcard, or use the followi
                 return
 
             id = message.from_user.id
-            print(f"got message from {id}")
+            logging.info(f"Generic message from {id}")
             if self.dbhandler.get_user_state(id) == "idle":
                 self.dbhandler.set_user_query_column(id, "from_tr", message.text)
-                print(f"getting translations for {message.text}")
                 translations = self.reversoHandler.get_translations(
                     message.text,
                     lang_to = self.dbhandler.get_user_setting(id, "language_to"),
                     lang_from = self.dbhandler.get_user_setting(id, "language_from")
                 )
+                logging.info(f"Sending translation options to {id}")
                 self.bot.send_message(
                     message.chat.id,
                     "Choose a translation:",
@@ -119,22 +130,26 @@ Just send me a message in {language_from} to add a flashcard, or use the followi
                 self.dbhandler.set_user_state(id, "awaiting_translation_choice")
 
             elif self.dbhandler.get_user_state(id) == "awaiting_translation_choice":
-                self.dbhandler.set_user_query_column(id, "to_tr", message.text)
-                print(f"getting contexts for {message.text}")
+                self.dbhandler.set_user_query_column(id, "to_tr", message.text) 
+                lang_to = self.dbhandler.get_user_setting(id, "language_to")
+                lang_from = self.dbhandler.get_user_setting(id, "language_from")
                 contexts = self.reversoHandler.get_contexts(
                     self.dbhandler.get_user_query_column(id, "from_tr"),
                     message.text,
-                    lang_to = self.dbhandler.get_user_setting(id, "language_to"),
-                    lang_from = self.dbhandler.get_user_setting(id, "language_from")
+                    lang_to = lang_to,
+                    lang_from = lang_from
                 )
+                formatted = []
+                for context in contexts:
+                    formatted_context = f'{self.bold_occurrences(context[0], lang_to)} - {self.bold_occurrences(context[1], lang_from)}'
+                    formatted.append(formatted_context)
+                logging.info(f"Sending context options to {id}") 
                 self.bot.send_message(
                     message.chat.id,
-                    "\n\n".join(" - ".join(i) for i in contexts),
+                    "\n\n".join(formatted),
                     reply_markup=self.gen_contexts_keyboard(contexts)
                 )
-                print(contexts)
                 for i, context in enumerate(contexts):
-                    print(f"adding context {i}")
                     self.dbhandler.add_user_context_option(id, i, context[0], context[1])
                 self.dbhandler.set_user_state(id, "awaiting_context_choice")
 
@@ -146,7 +161,8 @@ Just send me a message in {language_from} to add a flashcard, or use the followi
 
                     resulting_row = self.dbhandler.get_user_query(id)
 
-                    self.bot.send_message(message.chat.id, f"Translated {resulting_row[0]} to {resulting_row[1]}")
+                    logging.info(f"Confirming flashcard for {id}")
+                    self.bot.send_message(message.chat.id, f"Translated **{resulting_row[0]}** to **{resulting_row[1]}**")
                     self.bot.send_message(message.chat.id, f"Example: {resulting_row[2]}\n\n{resulting_row[3]}")
 
                     self.dbhandler.add_flashcard(id, resulting_row[0], resulting_row[1], resulting_row[2], resulting_row[3])
@@ -210,6 +226,8 @@ Just send me a message in {language_from} to add a flashcard, or use the followi
 
         return flashcard_display
             
+    def bold_occurrences(self, text, word):
+        return text.replace(word, f"**{word}**")
     
 
     def run(self):

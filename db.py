@@ -251,7 +251,7 @@ class DBHandler:
 
         self.conn.commit()
 
-    def get_user_setting(self, user_id, key):
+    def get_user_setting(self, user_id, key) -> str:
         cur = self.conn.cursor()
 
         cur.execute('''
@@ -259,5 +259,5 @@ class DBHandler:
             FROM UserSettings
             WHERE user_id = ? AND key = ?;
             ''', (user_id, key))
-
-        return cur.fetchone()[0]
+        res = cur.fetchone()
+        return res[0]

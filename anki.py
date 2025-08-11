@@ -1,4 +1,6 @@
 import genanki
+import logging
+
 class AnkiHandler:
 
     def __init__(self):
@@ -26,6 +28,7 @@ class AnkiHandler:
         )
 
     def new_deck(self, id, name):
+        logging.info(f"New deck {id} \"{name}\"")
         deck = genanki.Deck(
             deck_id=id,
             name=name
@@ -34,6 +37,7 @@ class AnkiHandler:
         return deck
 
     def add_flashcards(self, deck, data):
+        logging.info(f"Adding {len(data)} cards to deck {deck.deck_id}")
         for card in data:
             deck.add_note(
                 genanki.Note(
@@ -45,4 +49,5 @@ class AnkiHandler:
         return deck
 
     def export_deck(self, deck, file_name):
+        logging.info(f"Exporting deck {deck.deck_id} to {file_name}")
         genanki.Package(deck).write_to_file(file_name)

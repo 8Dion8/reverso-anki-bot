@@ -8,6 +8,8 @@ from selenium.common.exceptions import StaleElementReferenceException
 import urllib.parse
 from time import sleep
 
+import logging
+
 class ReversoHandler:
     def __init__(self):
         self.BASE_URL_CONTEXT = "https://context.reverso.net/translation"
@@ -22,18 +24,20 @@ class ReversoHandler:
         chrome_options = Options()
         chrome_options.page_load_strategy = 'eager'
         chrome_options.add_argument("--headless")
-        # chrome_options.add_argument("--disable-gpu")
-        # chrome_options.add_argument("--no-sandbox")
-        # chrome_options.add_argument("--disable-dev-shm-usage")
+        chrome_options.add_argument("--disable-gpu")
+        chrome_options.add_argument("--no-sandbox")
+        chrome_options.add_argument("--disable-dev-shm-usage")
         chrome_options.add_argument("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/87.0.4280.88 Safari/537.36")
         service = Service()
         driver = webdriver.Chrome(service=service, options=chrome_options)
         return driver
 
-    def get_translations(self, query: str, lang_to="english", lang_from="hebrew"):
+    def get_translations(self, query: str, lang_to: str, lang_from: str):
         translations = []
         encoded_query = urllib.parse.quote_plus(query)
         request_url = f"{self.BASE_URL_CONTEXT}/{lang_to}-{lang_from}/{encoded_query}"
+
+        logging.info(f"Requesting {request_url} for translations")
 
         self.driver.get(request_url)
 
@@ -52,12 +56,14 @@ class ReversoHandler:
 
         return translations
 
-    def get_contexts(self, query_from: str, query_to, lang_to="hebrew", lang_from="english"):
+    def get_contexts(self, query_from: str, query_to, lang_to: str, lang_from: str):
 
         contexts = []
 
         encoded_query = urllib.parse.quote_plus(query_from)
         request_url = f"{self.BASE_URL_CONTEXT}/{lang_to}-{lang_from}/{encoded_query}#{query_to}"
+
+        logging.info(f"Requesting {request_url} for contexts")
 
         self.driver.get(request_url)
         sleep(2)
