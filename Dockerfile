@@ -25,19 +25,16 @@ RUN apt-get update && apt-get install -y \
     xdg-utils \
     --no-install-recommends
 
-# Install Google Chrome (replace version as needed)
 ENV CHROME_VERSION=130.0.6723.91-1
 RUN wget --no-verbose -O /tmp/chrome.deb https://dl.google.com/linux/chrome/deb/pool/main/g/google-chrome-stable/google-chrome-stable_${CHROME_VERSION}_amd64.deb \
     && apt install -y /tmp/chrome.deb \
     && rm /tmp/chrome.deb
 
-# Install ChromeDriver (replace version as needed)
 ENV CHROMEDRIVER_VERSION=130.0.6723.91
 RUN wget -q -O /tmp/chromedriver.zip https://storage.googleapis.com/chrome-for-testing-public/${CHROMEDRIVER_VERSION}/linux64/chromedriver-linux64.zip \
     && unzip /tmp/chromedriver.zip -d /usr/local/bin/ \
     && rm /tmp/chromedriver.zip
 
-# Add chromedriver to PATH
 ENV PATH="/usr/local/bin/chromedriver-linux64:${PATH}"
 
 RUN touch master.db
